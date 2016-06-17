@@ -11,40 +11,40 @@
 
 (def default-options
   {:mode "1.8"
-   :bundler-version "1.1.3"})
+   :bundler-version "1.12.5"
+   :sub-directory ""})
 
 (defn- opts [project]
-    (merge default-options (:jruby-options project)))
+  (merge default-options (:jruby-options project)))
+
+(defn root-dir [project]
+  (-> (:root project)
+    (file (-> project opts :sub-directory))
+    (.getPath)))
 
 (def gem-dir ".lein-gems")
 
-(defn- bundler-18-gem-path
+(defn- gem-path-18
   [project]
-  (str (:root project) "/" gem-dir "/jruby/1.8"))
+  (str (root-dir project) "/" gem-dir "/jruby/1.8"))
 
-(defn- bundler-19-gem-path
+(defn- gem-path-19
   [project]
-  (str (:root project) "/" gem-dir "/jruby/1.9"))
+  (str (root-dir project) "/" gem-dir "/jruby/1.9"))
 
-(defn- bundler-gem-path
+(defn- gem-path
   [project]
   (if (= (:mode (opts project)) "1.8")
-    (bundler-18-gem-path project)
-    (bundler-19-gem-path project)))
+    (gem-path-18 project)
+    (gem-path-19 project)))
 
 (defn- bundler-version
   [project]
   (:bundler-version (opts project)))
 
-(def rubygems-gem-path (str gem-dir "/gems"))
-
-(defn- gem-install-dir-arg
+(defn- gem-dir-arg
   [project]
-  (format "-i%s" (str (:root project) "/" rubygems-gem-path)))
-
-(defn- gem-bundler-install-dir-arg
-  [project]
-  (format "-i%s" (bundler-gem-path project)))
+  (format "-i%s" (gem-path project)))
 
 (defn- task-props [project]
   {:classname "org.jruby.Main"})
@@ -53,7 +53,7 @@
 
 (defn- create-jruby-task
   [project keys]
-  (let [full-jruby-dir (file (:root project) "src")
+  (let [full-jruby-dir (file (root-dir project) "src")
         url-classpath (seq (.getURLs (java.lang.ClassLoader/getSystemClassLoader)))
         classpath (str/join java.io.File/pathSeparatorChar (map #(.getPath %) url-classpath))
         task (doto (lancet/instantiate-task lancet/ant-project "java"
@@ -106,16 +106,16 @@
     ; this may not be a good idea, but can't find another way to get the rubygems bin picked up
     ; another option might be to put it on the classpath. kind of a pain to do that and I'm lazy
     ; right now :P
-    (apply set-path [task (str (:root project) "/" rubygems-gem-path)])
+    (apply set-path [task (gem-path project)])
 
-    (apply set-gem-home [task (str (:root project) "/" rubygems-gem-path)])
+    (apply set-gem-home [task (gem-path project)])
 
     (.execute task)))
 
 (defn- jruby-bundle-exec
   [project & keys]
   (let [task (create-jruby-task project keys)
-        bundler-path (bundler-gem-path project)]
+        bundler-path (gem-path project)]
 
     (core/debug (str "bundle exec" keys))
 
@@ -135,24 +135,19 @@
 
 (defn- ensure-gem-dir
   [project]
-  (.mkdir (file (:root project) gem-dir)))
+  (.mkdir (file (root-dir project) gem-dir)))
 
 (defn- ensure-gems
   [project & gems]
   (apply ensure-gem-dir [project])
   (apply jruby-exec (concat
-    [project "-S" "maybe_install_gems"] gems [(gem-install-dir-arg project)])))
+    [project "-S" "gem" "install"] gems ["--conservative" (gem-dir-arg project)])))
 
 (defn- ensure-bundler
   [project]
-  (apply ensure-gem-dir [project])
-
-  ;yea, not really bundle execing, but we need that stuff on the gem path
-  (apply jruby-bundle-exec
-    [project "-S" "maybe_install_gems"
+  (ensure-gems project
     "bundler"
-      (format "-v%s" (bundler-version project))]))
-      ;(gem-bundler-install-dir-arg project)]))
+    (format "-v%s" (bundler-version project))))
 
 (defn- ensure-gem
   [project gem]
@@ -167,7 +162,7 @@
   [project & args]
   (apply ensure-bundler [project])
   (if (or (empty? args) (= (first args) "install"))
-    (apply jruby-bundle-exec (concat [project "-S" "bundle"] args ["--path" gem-dir]))
+    (apply jruby-bundle-exec (concat [project "-S" "bundle"] args ["--path" (str (root-dir project) "/" gem-dir) "--gemfile" (str (root-dir project) "/Gemfile")]))
     (if (= "exec" (first args))
       (apply jruby-bundle-exec (concat [project "-S"] (rest args)))
       (apply jruby-bundle-exec (concat [project "-S" "bundle"] args)))))
@@ -177,7 +172,7 @@
   (apply ensure-gem-dir [project])
   (if (any-starts-with? (first args) ["install" "uninstall" "update"])
     (apply jruby-exec (concat
-      [project "-S" "gem"] args [(gem-install-dir-arg project)]))
+      [project "-S" "gem"] args [(gem-dir-arg project)]))
     (apply jruby-exec (concat
       [project "-S" "gem"] args ))))
 
