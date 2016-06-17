@@ -1,10 +1,13 @@
 # lein-jruby
 
+[![Build Status](https://travis-ci.org/palfrey/lein-jruby.svg?branch=master)](https://travis-ci.org/palfrey/lein-jruby)
+[![Clojars Project](https://img.shields.io/clojars/v/lshift/lein-jruby.svg)](https://clojars.org/lshift/lein-jruby)
+
 This is a [Leiningen](https://github.com/technomancy/leiningen "Leiningen") plugin that allows you to run JRuby commands from a Leiningen project.
 
 ## Configuration
 
-Add `[lein-jruby "0.1.0"]` to the `:plugins` section of your `project.clj`
+Add `[lshift/lein-jruby "0.1.2-SNAPSHOT"]` to the `:plugins` section of your `project.clj`
 
 ## Usage
 
