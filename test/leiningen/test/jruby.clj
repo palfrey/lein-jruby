@@ -39,7 +39,7 @@
   (is (= ".lein-gems" gem-dir)))
 
 (deftest test-rubygems-dir
-  (is (= ".lein-gems/gems" rubygems-gem-path)))
+  (is (= (.getAbsolutePath (file "sample/.lein-gems/jruby/1.9")) (gem-path project))))
 
 (defn delete-file-recursively
 "Delete file f. If it's a directory, recursively delete all its contents.
